@@ -1,0 +1,18 @@
+# Binaries
+/server
+/bin/
+*.exe
+*.test
+*.out
+
+# Local SQLite databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Env and tooling
+.env
+.idea/
+.vscode/
+.DS_Store
