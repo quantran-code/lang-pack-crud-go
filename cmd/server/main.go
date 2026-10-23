@@ -18,7 +18,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	if err := httpapi.NewRouter(db).Run(":" + port); err != nil {
+	if err := httpapi.NewRouter(db, os.Stdout).Run(":" + port); err != nil {
 		log.Fatal(err)
 	}
 }
