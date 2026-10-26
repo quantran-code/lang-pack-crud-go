@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -132,9 +131,13 @@ type statusRequest struct {
 // getTask handles GET /tasks/:id. A non-numeric id is a 400, a missing row a 404.
 func getTask(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		id, ok, err := parseID(c.Param("id"))
 		if err != nil {
 			writeError(c, http.StatusBadRequest, "invalid task id")
+			return
+		}
+		if !ok {
+			writeError(c, http.StatusNotFound, "task not found")
 			return
 		}
 
@@ -158,9 +161,13 @@ func getTask(db *gorm.DB) gin.HandlerFunc {
 // validation. An absent, null, empty or unknown status is the same 400.
 func updateTaskStatus(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		id, ok, err := parseID(c.Param("id"))
 		if err != nil {
 			writeError(c, http.StatusBadRequest, "invalid task id")
+			return
+		}
+		if !ok {
+			writeError(c, http.StatusNotFound, "task not found")
 			return
 		}
 

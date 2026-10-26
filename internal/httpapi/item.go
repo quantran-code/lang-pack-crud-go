@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -90,9 +89,13 @@ func listItems(db *gorm.DB) gin.HandlerFunc {
 // getItem handles GET /items/:id. A non-numeric id is a 400, a missing row a 404.
 func getItem(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		id, ok, err := parseID(c.Param("id"))
 		if err != nil {
 			writeError(c, http.StatusBadRequest, "invalid item id")
+			return
+		}
+		if !ok {
+			writeError(c, http.StatusNotFound, "item not found")
 			return
 		}
 
@@ -117,9 +120,13 @@ func getItem(db *gorm.DB) gin.HandlerFunc {
 // database; struct Updates would skip those zero values and keep the old ones.
 func updateItem(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		id, ok, err := parseID(c.Param("id"))
 		if err != nil {
 			writeError(c, http.StatusBadRequest, "invalid item id")
+			return
+		}
+		if !ok {
+			writeError(c, http.StatusNotFound, "item not found")
 			return
 		}
 
@@ -168,9 +175,13 @@ func updateItem(db *gorm.DB) gin.HandlerFunc {
 // (404) without a separate existence query.
 func deleteItem(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		id, ok, err := parseID(c.Param("id"))
 		if err != nil {
 			writeError(c, http.StatusBadRequest, "invalid item id")
+			return
+		}
+		if !ok {
+			writeError(c, http.StatusNotFound, "item not found")
 			return
 		}
 
