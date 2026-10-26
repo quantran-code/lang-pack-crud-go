@@ -77,6 +77,12 @@ var itemListSpec = listSpec{
 	{Key: "quantity", Column: "quantity"},
 }
 
+// categoryListSpec is the sortable keys of GET /categories.
+var categoryListSpec = listSpec{
+	{Key: "id", Column: "id"},
+	{Key: "name", Column: "name"},
+}
+
 // taskListSpec is the sortable keys of GET /tasks.
 var taskListSpec = listSpec{
 	{Key: "id", Column: "id"},

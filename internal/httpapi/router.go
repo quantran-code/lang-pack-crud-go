@@ -11,7 +11,7 @@ import (
 // NewRouter builds the HTTP router. Routes are registered here, in one place. Every request is
 // given a request ID and logged once to logWriter; a nil logWriter disables the access log.
 func NewRouter(db *gorm.DB, logWriter io.Writer) *gin.Engine {
-	if err := db.AutoMigrate(&Item{}, &Task{}); err != nil {
+	if err := db.AutoMigrate(&Item{}, &Task{}, &Category{}); err != nil {
 		panic(err)
 	}
 
@@ -26,6 +26,11 @@ func NewRouter(db *gorm.DB, logWriter io.Writer) *gin.Engine {
 	router.GET("/tasks", listTasks(db))
 	router.GET("/tasks/:id", getTask(db))
 	router.PATCH("/tasks/:id/status", updateTaskStatus(db))
+	router.POST("/categories", createCategory(db))
+	router.GET("/categories", listCategories(db))
+	router.GET("/categories/:id", getCategory(db))
+	router.PUT("/categories/:id", updateCategory(db))
+	router.DELETE("/categories/:id", deleteCategory(db))
 	router.POST("/items", createItem(db))
 	router.GET("/items", listItems(db))
 	router.GET("/items/:id", getItem(db))
