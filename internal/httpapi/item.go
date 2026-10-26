@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -72,16 +73,29 @@ func createItem(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// listItems handles GET /items. The slice is made up front so an empty result marshals as []
-// instead of null.
+// listItems handles GET /items. The query string is parsed and validated before the database is
+// touched, so a bad limit, offset, sort or order is a 400 that never reaches SQL. One page is then
+// loaded through the shared paging helper, which also reports how many rows matched before limit
+// and offset: that total is the X-Total-Count header. The slice is made up front so an empty
+// result marshals as [] instead of null.
 func listItems(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		params, err := parseListParams(c, itemListSpec)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+
 		items := make([]Item, 0)
-		if err := db.WithContext(c.Request.Context()).Find(&items).Error; err != nil {
+		total, err := listPage(func() *gorm.DB {
+			return db.WithContext(c.Request.Context())
+		}, params, &items)
+		if err != nil {
 			writeError(c, http.StatusInternalServerError, "listing items")
 			return
 		}
 
+		c.Header(TotalCountHeader, strconv.FormatInt(total, 10))
 		c.JSON(http.StatusOK, items)
 	}
 }

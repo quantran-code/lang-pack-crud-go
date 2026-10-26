@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -96,28 +97,44 @@ func createTask(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// listTasks handles GET /tasks. The slice is made up front so an empty result marshals as []
-// instead of null. The filter is read with GetQuery so an absent parameter can be told apart
-// from a present but empty one, which is an invalid status.
+// listTasks handles GET /tasks. The query string is parsed and validated before the database is
+// touched. The filter is read with GetQuery so an absent parameter can be told apart from a
+// present but empty one, which is an invalid status; it is resolved once, so the count and the page
+// see exactly the same filter. One page is then loaded through the shared paging helper, which also
+// reports how many rows matched the filter before limit and offset: that total is the X-Total-Count
+// header. The slice is made up front so an empty result marshals as [] instead of null.
 func listTasks(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tasks := make([]Task, 0)
-		query := db.WithContext(c.Request.Context())
+		params, err := parseListParams(c, taskListSpec)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, err.Error())
+			return
+		}
 
+		var status *Status
 		if raw, ok := c.GetQuery("status"); ok {
-			status := Status(raw)
-			if !status.Valid() {
+			parsed := Status(raw)
+			if !parsed.Valid() {
 				writeError(c, http.StatusBadRequest, invalidStatusError().Error())
 				return
 			}
-			query = query.Where("status = ?", string(status))
+			status = &parsed
 		}
 
-		if err := query.Find(&tasks).Error; err != nil {
+		tasks := make([]Task, 0)
+		total, err := listPage(func() *gorm.DB {
+			query := db.WithContext(c.Request.Context())
+			if status != nil {
+				query = query.Where("status = ?", string(*status))
+			}
+			return query
+		}, params, &tasks)
+		if err != nil {
 			writeError(c, http.StatusInternalServerError, "listing tasks")
 			return
 		}
 
+		c.Header(TotalCountHeader, strconv.FormatInt(total, 10))
 		c.JSON(http.StatusOK, tasks)
 	}
 }
