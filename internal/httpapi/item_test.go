@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,20 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// doRequest drives the real router and records the response. An empty body means no request body.
+// doRequest drives the real router as an admin and records the response. An empty body means no
+// request body. The token comes from the shared helper, so every existing test sends a valid admin
+// token without any call site naming one.
 func doRequest(t *testing.T, router *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	var reader io.Reader
-	if body != "" {
-		reader = strings.NewReader(body)
-	}
-	req := httptest.NewRequest(method, path, reader)
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-	return rec
+	return doRequestWithToken(t, router, testAdminToken(), method, path, body)
 }
 
 // itemPath builds the path of one item, the way a client would ask for it.

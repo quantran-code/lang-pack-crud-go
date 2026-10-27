@@ -13,11 +13,13 @@ import (
 
 // adjustStatus fires one adjustment against the router and returns only its status code. It takes
 // no *testing.T and calls no testing method, so it is safe to call from a goroutine: the status is
-// reported back to the test goroutine and asserted there.
+// reported back to the test goroutine and asserted there. The request carries the shared admin
+// token, which testAdminToken() also builds without a *testing.T.
 func adjustStatus(router *gin.Engine, itemID uint, delta int) int {
 	body := fmt.Sprintf(`{"delta":%d}`, delta)
 	req := httptest.NewRequest(http.MethodPost, adjustPath(itemID), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authorizationHeader(testAdminToken()))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec.Code

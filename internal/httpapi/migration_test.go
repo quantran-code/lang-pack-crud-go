@@ -26,11 +26,12 @@ func (legacyItem) TableName() string {
 }
 
 // newTestRouterWithDB builds the real router over a database a test prepared itself, so a test can
-// control the schema and the rows that exist before AutoMigrate runs.
+// control the schema and the rows that exist before AutoMigrate runs. The router is built with the
+// shared test signing secret, so the token helpers' requests pass the auth middleware.
 func newTestRouterWithDB(t *testing.T, db *gorm.DB) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	return NewRouter(db, io.Discard)
+	return NewRouter(db, io.Discard, testJWTSecret)
 }
 
 // TestMigrationAddsCategoryIDToItems covers the populated-table migration: an items table created

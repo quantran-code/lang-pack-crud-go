@@ -16,10 +16,12 @@ import (
 )
 
 // doRequestWithID drives the real router with a request that carries reqID in the RequestIDHeader,
-// so a test can cover both the generated and the reused request ID paths.
+// so a test can cover both the generated and the reused request ID paths. It sends the shared admin
+// token as well, so a protected route answers its normal status.
 func doRequestWithID(t *testing.T, router *gin.Engine, method, path, reqID string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
+	req.Header.Set("Authorization", authorizationHeader(testAdminToken()))
 	if reqID != "" {
 		req.Header.Set(RequestIDHeader, reqID)
 	}
@@ -310,7 +312,7 @@ func TestNewRouterWithNilLogWriter(t *testing.T) {
 		readEnd.Close()
 	})
 
-	router := NewRouter(db, nil)
+	router := NewRouter(db, nil, testJWTSecret)
 
 	tests := []struct {
 		name       string

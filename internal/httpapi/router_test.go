@@ -18,7 +18,8 @@ func newTestRouter(t *testing.T) *gin.Engine {
 }
 
 // newTestRouterWithLog builds the real router over a database of its own and sends the access log
-// lines to w, so a test can capture them.
+// lines to w, so a test can capture them. The router is built with the shared test signing secret,
+// which is what the token helpers sign with.
 func newTestRouterWithLog(t *testing.T, w io.Writer) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -26,7 +27,7 @@ func newTestRouterWithLog(t *testing.T, w io.Writer) *gin.Engine {
 	if err != nil {
 		t.Fatalf("opening database: %v", err)
 	}
-	return NewRouter(db, w)
+	return NewRouter(db, w, testJWTSecret)
 }
 
 func TestHealth(t *testing.T) {

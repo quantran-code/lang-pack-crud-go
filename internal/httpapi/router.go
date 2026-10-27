@@ -10,8 +10,20 @@ import (
 
 // NewRouter builds the HTTP router. Routes are registered here, in one place. Every request is
 // given a request ID and logged once to logWriter; a nil logWriter disables the access log.
-func NewRouter(db *gorm.DB, logWriter io.Writer) *gin.Engine {
-	if err := db.AutoMigrate(&Item{}, &Task{}, &Category{}, &StockMovement{}); err != nil {
+//
+// secret is the key tokens are signed and verified with, so an empty one is a configuration error
+// rather than a router that would trust tokens signed with nothing: NewRouter panics on it.
+//
+// Authentication is attached per route, not with router.Use, so GET /health, POST /auth/register,
+// POST /auth/login and unregistered paths keep answering without a token: every other GET needs a
+// token of either role, and every POST, PUT, PATCH and DELETE on items, categories, tasks and stock
+// needs an admin one.
+func NewRouter(db *gorm.DB, logWriter io.Writer, secret string) *gin.Engine {
+	if secret == "" {
+		panic("httpapi: NewRouter requires a non-empty JWT signing secret")
+	}
+
+	if err := db.AutoMigrate(&Item{}, &Task{}, &Category{}, &StockMovement{}, &User{}); err != nil {
 		panic(err)
 	}
 
@@ -21,24 +33,32 @@ func NewRouter(db *gorm.DB, logWriter io.Writer) *gin.Engine {
 	// the panic has become a 500 before the log reads the status.
 	router.Use(requestIDMiddleware(), accessLogMiddleware(logWriter), gin.Recovery())
 
-	router.GET("/health", health)
-	router.POST("/tasks", createTask(db))
-	router.GET("/tasks", listTasks(db))
-	router.GET("/tasks/:id", getTask(db))
-	router.PATCH("/tasks/:id/status", updateTaskStatus(db))
-	router.POST("/categories", createCategory(db))
-	router.GET("/categories", listCategories(db))
-	router.GET("/categories/:id", getCategory(db))
-	router.PUT("/categories/:id", updateCategory(db))
-	router.DELETE("/categories/:id", deleteCategory(db))
-	router.POST("/items", createItem(db))
-	router.GET("/items", listItems(db))
-	router.GET("/items/:id", getItem(db))
-	router.PUT("/items/:id", updateItem(db))
-	router.DELETE("/items/:id", deleteItem(db))
+	// Any signed-in user may read; only an admin may change anything. Both are the same middleware
+	// with a different set of allowed roles, and neither holds shared state between requests.
+	signedIn := requireRole(secret, RoleUser, RoleAdmin)
+	adminOnly := requireRole(secret, RoleAdmin)
 
-	router.POST("/items/:id/adjust", adjustItem(db))
-	router.GET("/items/:id/movements", listItemMovements(db))
+	router.GET("/health", health)
+	router.POST("/auth/register", registerUser(db))
+	router.POST("/auth/login", loginUser(db, secret))
+
+	router.POST("/tasks", adminOnly, createTask(db))
+	router.GET("/tasks", signedIn, listTasks(db))
+	router.GET("/tasks/:id", signedIn, getTask(db))
+	router.PATCH("/tasks/:id/status", adminOnly, updateTaskStatus(db))
+	router.POST("/categories", adminOnly, createCategory(db))
+	router.GET("/categories", signedIn, listCategories(db))
+	router.GET("/categories/:id", signedIn, getCategory(db))
+	router.PUT("/categories/:id", adminOnly, updateCategory(db))
+	router.DELETE("/categories/:id", adminOnly, deleteCategory(db))
+	router.POST("/items", adminOnly, createItem(db))
+	router.GET("/items", signedIn, listItems(db))
+	router.GET("/items/:id", signedIn, getItem(db))
+	router.PUT("/items/:id", adminOnly, updateItem(db))
+	router.DELETE("/items/:id", adminOnly, deleteItem(db))
+
+	router.POST("/items/:id/adjust", adminOnly, adjustItem(db))
+	router.GET("/items/:id/movements", signedIn, listItemMovements(db))
 
 	return router
 }
